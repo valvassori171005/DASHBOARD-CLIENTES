@@ -1,9 +1,9 @@
 // Vercel Routing Middleware (roda antes do cache da CDN).
-// Exige o JWT do Cloudflare Access em todas as rotas (exceto o ingest, que tem segredo próprio).
+// Exige o JWT do Cloudflare Access em todas as rotas.
 // Sem isso, a URL *.vercel.app ficaria aberta, contornando o Cloudflare Access.
 // Se CF_ACCESS_TEAM_DOMAIN / CF_ACCESS_AUD não estiverem definidos, não bloqueia (dev/preview).
 
-export const config = { matcher: ['/((?!api/ingest/).*)'] };
+export const config = { matcher: ['/(.*)'] };
 
 let jwksCache = { keys: null, at: 0 };
 

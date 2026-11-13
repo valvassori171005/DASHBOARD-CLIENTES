@@ -111,39 +111,40 @@ test('/api/google (API direta) converte micros e usa os headers certos', async (
   assert.equal(seen[0].headers['developer-token'], 'dev');
 });
 
-test('plano B: ingest exige segredo, grava no KV e /api/google lê de lá', async () => {
-  const secret = 'x'.repeat(40);
-  Object.assign(process.env, { INGEST_SECRET: secret, KV_REST_API_URL: 'https://kv.test', KV_REST_API_TOKEN: 'kvt' });
-  const kv = new Map();
-  globalThis.fetch = async (url, init) => {
-    assert.equal(String(url), 'https://kv.test');
-    const [cmd, key, val] = JSON.parse(init.body);
-    if (cmd === 'SET') { kv.set(key, val); return json({ result: 'OK' }); }
-    return json({ result: kv.get(key) ?? null });
+test('plano B: lê a planilha publicada (CSV), com aspas e números em pt-BR', async () => {
+  Object.assign(process.env, { GADS_SHEET_CSV_URL: 'https://docs.google.com/spreadsheets/d/e/X/pub?output=csv' });
+  const csv = [
+    'date,campaignId,campaignName,status,spend,impressions,clicks,conversions,revenue,,atualizado_em,2026-11-13T12:00:00.000Z',
+    '2026-09-30,1,A,ENABLED,5,50,5,1,0,,moeda,BRL',
+    '2026-10-01,1,"Pesquisa, ""Marca""",ENABLED,"1.234,56",100,9,2.5,0,,desde,2026-09-01',
+    '01/10/2026,2,B,PAUSED,10.5,10,1,0,0,,,',
+    'lixo,3,C,ENABLED,99,1,1,1,0,,,',
+  ].join('\r\n');
+  globalThis.fetch = async (url) => {
+    assert.match(String(url), /docs\.google\.com/);
+    return new Response(csv, { status: 200, headers: { 'Content-Type': 'text/csv' } });
   };
-  const { default: ingest } = await import('../api/ingest/google.js');
-
-  let res = mockRes();
-  await ingest(req('/api/ingest/google', { method: 'POST', headers: { authorization: 'Bearer errado' }, body: { rows: [] } }), res);
-  assert.equal(res.statusCode, 401);
-
-  const rows = [
-    { date: '2026-09-30', campaignId: '1', campaignName: 'A', status: 'ENABLED', spend: 5, impressions: 50, clicks: 5, conversions: 1, revenue: 0 },
-    { date: '2026-10-01', campaignId: '1', campaignName: 'A', status: 'ENABLED', spend: 10, impressions: 100, clicks: 9, conversions: 2, revenue: 0 },
-    { date: 'lixo', campaignId: '1' },
-  ];
-  res = mockRes();
-  await ingest(req('/api/ingest/google', { method: 'POST', headers: { authorization: `Bearer ${secret}` }, body: { currency: 'BRL', from: '2026-09-01', rows } }), res);
-  assert.equal(res.statusCode, 200, res.body);
-  assert.equal(res.json().rows, 2);
-
   const { default: google } = await import('../api/google.js');
-  res = mockRes();
+  const res = mockRes();
   await google(req('/api/google?since=2026-10-01&until=2026-10-01'), res);
   const body = res.json();
-  assert.equal(body.mode, 'script');
-  assert.equal(body.totals.spend, 10);
+  assert.equal(res.statusCode, 200, res.body);
+  assert.equal(body.mode, 'sheet');
+  assert.equal(body.totals.spend, 1245.06);
+  assert.equal(body.totals.conversions, 2.5);
   assert.equal(body.previous.totals.spend, 5);
+  assert.equal(body.dataUpdatedAt, '2026-11-13T12:00:00.000Z');
+  assert.ok(body.campaigns.some((c) => c.name === 'Pesquisa, "Marca"'));
+});
+
+test('plano B: planilha não publicada (HTML) vira erro claro', async () => {
+  Object.assign(process.env, { GADS_SHEET_CSV_URL: 'https://docs.google.com/spreadsheets/d/X/edit' });
+  globalThis.fetch = async () => new Response('<!DOCTYPE html><html>login</html>', { status: 200 });
+  const { default: google } = await import('../api/google.js');
+  const res = mockRes();
+  await google(req('/api/google?since=2026-10-01&until=2026-10-01'), res);
+  assert.equal(res.statusCode, 502);
+  assert.match(res.json().message, /publicada/);
 });
 
 test('middleware: bloqueia sem JWT, libera com JWT válido do Cloudflare Access', async () => {

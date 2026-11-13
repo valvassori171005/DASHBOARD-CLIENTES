@@ -10,8 +10,7 @@ GitHub (privado) ──push──► Vercel
   /                 public/ (HTML/CSS/JS, responsivo, pt-BR)
   /api/config       configuração pública (nome do cliente, rótulo de conversão)
   /api/meta         Meta Marketing API  → /act_{ID}/insights
-  /api/google       Google Ads API (REST + GAQL)  ou  dados do plano B
-  /api/ingest/google  plano B: recebe POST do Script do Google Ads
+  /api/google       Google Ads API (REST + GAQL)  ou  planilha do plano B
   middleware.js     exige o login do Cloudflare Access (também na URL *.vercel.app)
 Cloudflare: DNS (dash.dominio.com.br) + Access (login por e-mail/OTP)
 ```
@@ -22,9 +21,9 @@ Cloudflare: DNS (dash.dominio.com.br) + Access (login por e-mail/OTP)
 |---|---|
 | `public/` | Front-end (sem framework; Chart.js via CDN) |
 | `api/` | Funções serverless (Node 20+, sem dependências) |
-| `lib/` | Código compartilhado: Meta, Google Ads, normalização, datas, KV |
+| `lib/` | Código compartilhado: Meta, Google Ads, planilha, normalização, datas |
 | `middleware.js` | Validação do JWT do Cloudflare Access |
-| `scripts/google-ads-script.js` | Script para colar no Google Ads (plano B) |
+| `scripts/google-ads-para-sheets.js` | Script para colar no Google Ads (plano B → Google Sheets) |
 | `scripts/dev-server.js` | Servidor local (`npm run dev`) |
 | `test/` | Testes sem rede (`npm test`) |
 | `.env.example` | Todas as variáveis de ambiente, comentadas |
@@ -105,17 +104,27 @@ Ajustes de critério (confirmar com o cliente):
 Conversões: por padrão, a coluna **Conversões** (ações marcadas como principais). Para contar
 ações específicas, liste os nomes em `GADS_CONVERSION_ACTIONS`.
 
-### Google Ads — plano B (enquanto o developer token não sai)
-1. Vercel → **Storage** → criar um banco **Upstash Redis** (marketplace) e conectá-lo ao
-   projeto. Isso cria `KV_REST_API_URL` e `KV_REST_API_TOKEN`.
-2. Gere um segredo: `openssl rand -hex 32` → variável `INGEST_SECRET` na Vercel.
-3. Google Ads da conta do cliente → Ferramentas → Ações em massa → **Scripts** → novo →
-   cole `scripts/google-ads-script.js`, preencha `ENDPOINT` e `INGEST_SECRET` → Autorizar →
-   Visualizar → Executar → **Frequência: de hora em hora**.
-4. Sem `GADS_DEVELOPER_TOKEN`, o `/api/google` já lê do KV automaticamente
-   (ou force com `GADS_MODE=script`). O rodapé mostra o horário da última sincronização.
-5. Quando o token for aprovado: preencha as `GADS_*`, remova `GADS_MODE` (ou `GADS_MODE=api`)
+### Google Ads — plano B: Script → Google Sheets (enquanto o developer token não sai)
+O Script do Google Ads grava, de hora em hora, os últimos 400 dias por campanha/dia numa
+planilha; o `/api/google` lê essa planilha publicada como CSV.
+
+1. Crie uma planilha vazia no Google Sheets (ex.: "HSJ – Google Ads – dados").
+2. Google Ads da conta do cliente → Ferramentas → Ações em massa → **Scripts** → (+) → cole
+   `scripts/google-ads-para-sheets.js`, troque `SHEET_URL` pelo link da planilha →
+   **Autorizar** → **Visualizar** → **Executar**. Confira se a aba `dados` foi preenchida.
+3. No script, **Frequência: de hora em hora**.
+4. Na planilha: Arquivo → Compartilhar → **Publicar na Web** → aba `dados`, formato
+   **CSV** → Publicar. Copie o link para `GADS_SHEET_CSV_URL` na Vercel.
+5. Sem `GADS_DEVELOPER_TOKEN`, o `/api/google` já lê a planilha (ou force com `GADS_MODE=sheet`).
+   O rodapé do dash mostra o horário da última atualização.
+6. Quando o token for aprovado: preencha as `GADS_*`, remova `GADS_MODE` (ou `GADS_MODE=api`)
    e pause o script. O front não muda.
+
+> **Atenção:** "Publicar na Web" deixa o CSV acessível a quem tiver o link (que é longo e
+> impossível de adivinhar, e não aparece no front nem no repositório — fica só na Vercel).
+> O conteúdo são métricas de campanha (investimento, cliques, conversões), sem dados de
+> pacientes. Se isso não for aceitável para o cliente, a alternativa é ler a planilha privada
+> com uma conta de serviço do Google Cloud.
 
 ## Deploy (Vercel)
 1. Vercel → Add New Project → importar este repositório (Framework: **Other**; sem build).
@@ -136,10 +145,6 @@ ações específicas, liste os nomes em `GADS_CONVERSION_ACTIONS`.
    política **Allow** com os e-mails autorizados → login por **One-time PIN** (grátis até 50 usuários).
 3. Na aplicação criada, copie o **Application Audience (AUD) Tag** e o domínio da equipe
    (`<equipe>.cloudflareaccess.com`) para `CF_ACCESS_AUD` e `CF_ACCESS_TEAM_DOMAIN` na Vercel.
-4. Crie uma **segunda política** do tipo *Bypass* (ou uma aplicação separada) para o caminho
-   `dash.dominio.com.br/api/ingest/*`, senão o Script do Google Ads é barrado pelo login.
-   O ingest continua protegido pelo `INGEST_SECRET`.
-
 Por que o passo 3: sem ele, qualquer um acessaria o dash pela URL `*.vercel.app`, contornando
 o Cloudflare. O `middleware.js` valida o JWT assinado pelo Access em toda requisição (antes do
 cache da CDN) e devolve 403 sem ele.

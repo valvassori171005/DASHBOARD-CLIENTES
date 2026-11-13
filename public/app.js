@@ -480,7 +480,7 @@ function renderFooter() {
   const lines = [];
   for (const p of activePlatforms()) {
     const d = state.data[p];
-    const when = d.mode === 'script'
+    const when = d.mode === 'sheet'
       ? `última sincronização em ${fmt.dateTime(d.dataUpdatedAt)}`
       : `consultado em ${fmt.dateTime(d.generatedAt)}`;
     const notes = (d.notes || []).filter((n) => !/parcial/i.test(n)).join(' · ');
