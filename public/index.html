@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Painel de Tráfego</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%232a78d6'/%3E%3Cpath d='M3 12l3-4 3 2 4-6' stroke='white' stroke-width='1.6' fill='none'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div>
+        <p class="eyebrow">Tráfego pago · Meta Ads + Google Ads</p>
+        <h1 id="client-name">Painel de tráfego</h1>
+        <p class="period-label" id="period-label">&nbsp;</p>
+      </div>
+      <span class="badge-demo" id="demo-badge" hidden>Dados de demonstração</span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="filters" aria-label="Filtros">
+      <div class="filter-group">
+        <span class="filter-title" id="lbl-period">Período</span>
+        <div class="seg" role="group" aria-labelledby="lbl-period" id="period-buttons">
+          <button type="button" data-period="7d">7 dias</button>
+          <button type="button" data-period="30d">30 dias</button>
+          <button type="button" data-period="mes_atual">Mês atual</button>
+          <button type="button" data-period="mes_anterior">Mês anterior</button>
+          <button type="button" data-period="custom">Personalizado</button>
+        </div>
+        <form class="custom-range" id="custom-range" hidden>
+          <label>De <input type="date" id="custom-since" required></label>
+          <label>Até <input type="date" id="custom-until" required></label>
+          <button type="submit" class="btn-apply">Aplicar</button>
+        </form>
+      </div>
+      <div class="filter-group">
+        <span class="filter-title" id="lbl-platform">Plataforma</span>
+        <div class="seg" role="group" aria-labelledby="lbl-platform" id="platform-buttons">
+          <button type="button" data-platform="all">Consolidado</button>
+          <button type="button" data-platform="meta"><i class="dot dot-meta" aria-hidden="true"></i>Meta Ads</button>
+          <button type="button" data-platform="google"><i class="dot dot-google" aria-hidden="true"></i>Google Ads</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="notices" class="notices" aria-live="polite"></div>
+
+    <div id="content" class="content">
+      <section class="card" aria-labelledby="kpi-title">
+        <h2 id="kpi-title" class="finding">Carregando…</h2>
+        <p class="sub" id="kpi-sub">Variação em relação ao período anterior</p>
+        <div class="kpis" id="kpis"></div>
+      </section>
+
+      <section class="card" id="split-card" aria-labelledby="split-title" hidden>
+        <h2 id="split-title" class="finding"></h2>
+        <p class="sub">Participação de cada plataforma e eficiência no período</p>
+        <div class="split" id="split"></div>
+      </section>
+
+      <section class="card" aria-labelledby="trend-title">
+        <div class="card-head">
+          <div>
+            <h2 id="trend-title" class="finding"></h2>
+            <p class="sub" id="trend-sub">Tendência diária</p>
+          </div>
+          <div class="seg seg-sm" role="group" aria-label="Métrica do gráfico" id="metric-buttons"></div>
+        </div>
+        <div class="chart-box"><canvas id="trend-chart" role="img" aria-label="Gráfico de tendência diária"></canvas></div>
+        <details class="data-table">
+          <summary>Ver dados do gráfico em tabela</summary>
+          <div class="table-scroll"><table id="daily-table"></table></div>
+        </details>
+      </section>
+
+      <section class="card" aria-labelledby="camp-title">
+        <div class="card-head">
+          <div>
+            <h2 id="camp-title" class="finding"></h2>
+            <p class="sub">Resultados por campanha · clique no cabeçalho para ordenar</p>
+          </div>
+          <label class="search">
+            <span class="sr-only">Buscar campanha</span>
+            <input type="search" id="camp-search" placeholder="Buscar campanha…" autocomplete="off">
+          </label>
+        </div>
+        <div class="table-scroll"><table id="camp-table" class="camp-table"></table></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="wrap foot" id="footer"></footer>
+</body>
+</html>
